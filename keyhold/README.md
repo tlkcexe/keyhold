@@ -236,4 +236,4 @@ Validation errors return `400` with a `details` array of `{ field, message }`.
 
 ## License
 
-MIT — use it, fork it, put it on your résumé.
+MIT License — open for use, modification, and contributions.
