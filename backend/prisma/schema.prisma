@@ -1,0 +1,69 @@
+// Prisma schema — PostgreSQL
+// Run `npm run prisma:migrate` after setting DATABASE_URL in .env
+
+generator client {
+  provider      = "prisma-client-js"
+  // "native" covers local dev on Mac/Linux/Windows; the musl target is what
+  // the node:20-alpine Docker image needs (Alpine ships OpenSSL 3.x).
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  passwordHash      String
+  name              String
+  role              Role      @default(USER)
+  isEmailVerified   Boolean   @default(false)
+  failedLoginCount  Int       @default(0)
+  lockedUntil       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  refreshTokens     RefreshToken[]
+  passwordResets    PasswordResetToken[]
+
+  @@map("users")
+}
+
+// Refresh tokens are stored hashed and rotated on every use (rotation +
+// reuse detection). Storing them server-side lets us revoke on logout,
+// password change, or suspected theft — a bare stateless JWT can't do that.
+model RefreshToken {
+  id          String    @id @default(uuid())
+  tokenHash   String    @unique
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+  replacedBy  String?
+  userAgent   String?
+  ipAddress   String?
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
