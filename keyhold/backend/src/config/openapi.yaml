@@ -1,0 +1,135 @@
+openapi: 3.0.3
+info:
+  title: Keyhold API
+  description: Production-style authentication API with JWT access/refresh tokens, RBAC, and rate limiting.
+  version: 1.0.0
+servers:
+  - url: /api
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, example: Ada Lovelace }
+                email: { type: string, format: email }
+                password: { type: string, format: password, example: SuperSecret123! }
+      responses:
+        '201': { description: User created, session issued }
+        '409': { description: Email already in use }
+        '400': { description: Validation error }
+  /auth/login:
+    post:
+      summary: Log in with email and password
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        '200': { description: Logged in, session issued }
+        '401': { description: Invalid credentials }
+        '403': { description: Account locked }
+        '429': { description: Too many attempts }
+  /auth/refresh:
+    post:
+      summary: Exchange a valid refresh token (cookie) for a new access token
+      tags: [Auth]
+      responses:
+        '200': { description: New access token issued }
+        '401': { description: Missing/invalid/reused refresh token }
+  /auth/logout:
+    post:
+      summary: Revoke the current refresh token and clear auth cookies
+      tags: [Auth]
+      responses:
+        '204': { description: Logged out }
+  /auth/me:
+    get:
+      summary: Get the currently authenticated user
+      tags: [Auth]
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        '200': { description: Current user }
+        '401': { description: Not authenticated }
+  /auth/forgot-password:
+    post:
+      summary: Request a password reset link (simulated email)
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '200': { description: Generic confirmation (prevents email enumeration) }
+  /auth/reset-password:
+    post:
+      summary: Reset password using a reset token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string }
+                password: { type: string, format: password }
+      responses:
+        '200': { description: Password reset }
+        '400': { description: Invalid or expired token }
+  /auth/change-password:
+    post:
+      summary: Change password while authenticated
+      tags: [Auth]
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string, format: password }
+                newPassword: { type: string, format: password }
+      responses:
+        '200': { description: Password changed, all sessions revoked }
+        '401': { description: Current password incorrect }
+  /users:
+    get:
+      summary: List all users (admin only)
+      tags: [Users]
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        '200': { description: List of users }
+        '403': { description: Forbidden — admin role required }
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
